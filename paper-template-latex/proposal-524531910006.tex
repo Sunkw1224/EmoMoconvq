@@ -1,0 +1,269 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{times}
+
+% numbers option provides compact numerical references in the text. 
+\usepackage[numbers]{natbib}
+\usepackage{multicol}
+\usepackage[bookmarks=true]{hyperref}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+
+\pdfinfo{
+   /Author (Homer Simpson)
+   /Title  (Robots: Our new overlords)
+   /CreationDate (D:20101201120000)
+   /Subject (Robots)
+   /Keywords (Robots;Overlords)
+}
+
+\begin{document}
+
+% paper title
+\title{EmoMoconvq: Emotion Conditioned Human Motion Generation}
+
+% You will get a Paper-ID when submitting a pdf file to the conference system
+\author{Kangwei Sun 524531910006}
+
+%\author{\authorblockN{Michael Shell}
+%\authorblockA{School of Electrical and\\Computer Engineering\\
+%Georgia Institute of Technology\\
+%Atlanta, Georgia 30332--0250\\
+%Email: mshell@ece.gatech.edu}
+%\and
+%\authorblockN{Homer Simpson}
+%\authorblockA{Twentieth Century Fox\\
+%Springfield, USA\\
+%Email: homer@thesimpsons.com}
+%\and
+%\authorblockN{James Kirk\\ and Montgomery Scott}
+%\authorblockA{Starfleet Academy\\
+%San Francisco, California 96678-2391\\
+%Telephone: (800) 555--1212\\
+%Fax: (888) 555--1212}}
+
+
+% avoiding spaces at the end of the author lines is not a problem with
+% conference papers because we don't use \thanks or \IEEEmembership
+
+
+% for over three affiliations, or if they all won't fit within the width
+% of the page, use this alternative format:
+% 
+%\author{\authorblockN{Michael Shell\authorrefmark{1},
+%Homer Simpson\authorrefmark{2},
+%James Kirk\authorrefmark{3}, 
+%Montgomery Scott\authorrefmark{3} and
+%Eldon Tyrell\authorrefmark{4}}
+%\authorblockA{\authorrefmark{1}School of Electrical and Computer Engineering\\
+%Georgia Institute of Technology,
+%Atlanta, Georgia 30332--0250\\ Email: mshell@ece.gatech.edu}
+%\authorblockA{\authorrefmark{2}Twentieth Century Fox, Springfield, USA\\
+%Email: homer@thesimpsons.com}
+%\authorblockA{\authorrefmark{3}Starfleet Academy, San Francisco, California 96678-2391\\
+%Telephone: (800) 555--1212, Fax: (888) 555--1212}
+%\authorblockA{\authorrefmark{4}Tyrell Inc., 123 Replicant Street, Los Angeles, California 90210--4321}}
+
+
+\maketitle
+
+\begin{abstract}
+Physics-based motion generation methods such as MoConVQ~\cite{yao2023moconvq}
+produce high-quality motions from text descriptions but generate stylistically neutral
+results regardless of emotional context. We propose \textbf{EmoMoconvq}, which extends
+MoConVQ's T2M-MoConGPT by injecting a discrete emotion label
+(e.g., \textit{happy}, \textit{sad}, \textit{angry}, \textit{fearful}) as an
+additional conditioning signal. Through parameter-efficient fine-tuning on a small
+emotionally annotated motion dataset, we aim to generate physically plausible motions
+whose stylistic qualities reflect the intended emotional state.
+\end{abstract}
+
+\IEEEpeerreviewmaketitle
+
+\section{Motivation and Problem Statement}
+Human motion is inherently expressive---the same action performed in different emotional
+states (e.g., walking while happy vs.\ sad) exhibits distinct kinematic patterns such
+as stride length, torso posture, and arm swing amplitude. This expressiveness is critical
+for digital humans, game characters, and social robots, yet current physics-based
+generation methods ignore it entirely.
+
+MoConVQ~\cite{yao2023moconvq} shows that discrete VQ-VAE representations combined
+with a GPT-style transformer can generate diverse, physically accurate motions from
+natural language. However, its T2M-MoConGPT produces emotion-neutral outputs: the same
+text prompt always yields the same stylistic result. We therefore propose \textbf{EmoMoconvq},
+which extends T2M-MoConGPT by conditioning on discrete emotion labels. 
+
+\section{Literature Review}
+
+\subsection{Physics-Based Motion Generation.}
+MoConVQ~\cite{yao2023moconvq} encodes motions into residual VQ codes and decodes
+them through a physics simulator via model-based RL, trained on 23 hours of diverse
+motion data. Its frozen encoder and codebook make it well-suited for lightweight
+downstream fine-tuning.
+
+\subsection{Text-to-Motion Generation.}
+T2M-GPT~\cite{zhang2023t2m} and MDM~\cite{tevet2022human} generate kinematic motions
+from text using discrete transformers and diffusion models respectively, both trained
+on HumanML3D~\cite{guo2022generating}. Neither is physics-based nor models emotional style.
+
+\subsection{Style and Emotion in Motion.}
+ACTOR~\cite{petrovich2021action} conditions a Transformer VAE on action labels, showing
+that high-level categorical signals can guide motion style. The CMU MoCap
+database~\cite{cmu_mocap} includes emotionally performed locomotion sequences suitable
+for fine-tuning. Our work is the first to combine emotion conditioning with a
+physics-based generation pipeline.
+
+
+
+\section{Technical Plan}
+
+\subsection{System Overview}
+ 
+We build directly on the pretrained MoConVQ framework~\cite{yao2023moconvq}.
+The MoConVQ system consists of three trained components: (1) a 1D convolutional
+\textbf{motion encoder} $\mathcal{E}$ that maps a motion clip $M$ to a sequence of
+latent vectors $V = [v^k]$; (2) a \textbf{residual VQ codebook} $\mathcal{B}$ with
+$N=8$ quantization layers, each containing 512 code vectors of dimension 768, producing
+discrete index sequences $S = [I^k]$; and (3) a \textbf{physics-based decoder}
+$\mathcal{D}$ comprising a deconvolutional network, a mixture-of-experts control policy,
+and a physics simulator. For text-to-motion generation, MoConVQ employs a dual-transformer
+\textbf{MoConGPT}: a temporal transformer ($N_T = 12$ layers) that aggregates information
+across motion time steps, and a depth transformer ($N_D = 5$ layers) that predicts
+RVQ indices layer by layer within each time step.
+ 
+In our extension, we freeze all components except for a newly introduced
+\textbf{emotion embedding module} and the \textbf{top $K$ layers} of the temporal
+transformer.
+
+\subsection{Emotion Embedding Module}
+ 
+Let $\mathcal{C} = \{\textit{neutral},\, \textit{happy},\, \textit{sad},\,
+\textit{angry},\, \textit{fearful}\}$ denote the set of $|\mathcal{C}|=5$ emotion
+categories. Each emotion $c \in \mathcal{C}$ is mapped to a trainable embedding vector:
+\begin{equation}
+    E_e: \mathcal{C} \rightarrow \mathbb{R}^{d_e}, \quad e_c = E_e(c)
+\end{equation}
+where $d_e = 512$ matches the hidden dimension of the temporal transformer. The
+emotion embedding is fused with the T5 text feature $f_{\text{T5}}$ via a two-layer
+MLP projection followed by element-wise addition:
+\begin{equation}
+    f_{\text{cond}} = f_{\text{T5}} + \text{MLP}_{\text{proj}}(e_c)
+\end{equation}
+This additive fusion preserves the pretrained text conditioning while introducing an
+orthogonal affective signal. The fused feature $f_{\text{cond}}$ replaces $f_{\text{T5}}$
+in the cross-attention layers of the temporal transformer, following the same injection
+mechanism as the original T2M-MoConGPT.
+ 
+\subsection{Fine-Tuning Strategy}
+ 
+We freeze the MoConVQ encoder, codebook, physics decoder, depth transformer, and the
+bottom $(N_T - K)$ layers of the temporal transformer. We fine-tune only:
+\begin{itemize}[noitemsep]
+    \item The emotion embedding table $E_e$ ($|\mathcal{C}| \times d_e$ parameters),
+    \item The MLP projection head $\text{MLP}_{\text{proj}}$,
+    \item The top $K = 4$ layers of the temporal transformer (cross-attention and FFN weights).
+\end{itemize}
+This parameter-efficient design minimizes catastrophic forgetting of the pretrained
+motion distribution while allowing the model to learn emotion-specific stylistic
+variations. We train with the same negative log-likelihood loss as MoConGPT:
+\begin{equation}
+    \mathcal{L}_{\text{emo}} = \mathbb{E}_{(S,\, c)} \left[ \sum_{k=1}^{K} \sum_{d=0}^{N}
+    -\log p\!\left(I^k_d \,\middle|\, f_{\text{cond}}(c),\; I^k_{<d},\; I^{<k}\right) \right]
+\end{equation}
+  
+\subsection{Data Preparation}
+ 
+We construct a fine-tuning dataset by combining two sources:
+ 
+\textbf{(1) HumanML3D subset with emotion keywords.} We filter the HumanML3D training
+set~\cite{guo2022generating} for text annotations containing explicit emotion-related
+adverbs or adjectives (e.g., ``happily'', ``angrily'', ``fearfully'', ``sadly'').
+We assign emotion labels based on keyword matching and manual verification. We expect
+approximately 800--1200 clip-text pairs across the four non-neutral emotion classes.
+ 
+\textbf{(2) CMU MoCap emotional gait sequences.} The CMU database includes a small
+set of locomotion sequences performed in specified emotional styles. We retarget these
+sequences to the MoConVQ character skeleton and synthesize paired text descriptions
+(e.g., ``a person walks forward'') with assigned emotion labels. This yields
+approximately 100--200 additional pairs.
+ 
+For data augmentation, we apply random horizontal mirroring (left/right reflection)
+and temporally subsample sequences at 0.8$\times$ and 1.2$\times$ speed, doubling
+the effective dataset size.
+ 
+\subsection{Evaluation Protocol}
+ 
+We evaluate on a held-out set of emotion-conditioned text prompts and report:
+ 
+\begin{itemize}[noitemsep]
+    \item \textbf{FID}: Fr\'{e}chet Inception Distance between generated and
+    ground-truth motion feature distributions, computed using the pretrained motion
+    feature extractor from~\cite{guo2022generating}.
+    \item \textbf{R-Precision (Top-1/2/3)}: Retrieval accuracy between generated
+    motions and their conditioning text descriptions.
+    \item \textbf{Emotion Classification Accuracy}: A separately trained lightweight
+    emotion classifier (e.g., GRU-based) on motion sequences is used to verify that
+    generated motions are classified as the intended emotion.
+    \item \textbf{User Study}: 20 participants rate generated motion pairs
+    (same action, different emotion labels) on a 5-point Likert scale for
+    (a) emotional distinctiveness and (b) motion naturalness.
+\end{itemize}
+
+\section{Expected Outcomes}
+ 
+We expect to demonstrate that EmoMotion successfully conditions motion style on
+discrete emotion labels without sacrificing the physics-based plausibility guaranteed
+by the MoConVQ decoder. Concretely, we anticipate:
+\begin{itemize}[noitemsep]
+    \item FID scores competitive with or modestly higher than the baseline
+    T2M-MoConGPT (target: $\leq 0.5$ FID degradation),
+    \item Emotion classification accuracy $\geq 60\%$ on held-out clips
+    (significantly above the $20\%$ random baseline for 5 classes),
+    \item User study ratings indicating that $\geq 70\%$ of participants can
+    correctly identify the intended emotion from the generated motion,
+    \item Qualitative video results showing perceptibly different walking,
+    running, and sitting motions across emotion conditions.
+\end{itemize}
+
+\section{Potential Risks and Backup Plan}
+
+\subsection{Insufficient labeled data.} 
+If fine-tuning overfits, we reduce to 3 emotion
+classes (happy/sad/neutral) and rely more heavily on augmentation.
+
+\subsection{Catastrophic forgetting.} 
+If overall FID degrades sharply, we reduce $K$
+(freeze more layers) or adopt LoRA adapters~\cite{hu2022lora} instead of full
+layer fine-tuning.
+
+\subsection{Compute constraints.} As a fallback, we fine-tune only the emotion embedding
+and MLP ($<$1M parameters), omitting temporal transformer fine-tuning.
+
+\section{Timeline}
+
+\begin{center}
+\small
+\begin{tabular}{p{2.5cm} p{5cm}}
+\toprule
+\textbf{Period} & \textbf{Milestone} \\
+\midrule
+Week 1--2  & Reproduce T2M-MoConGPT baseline; verify FID/R-precision. \\
+Week 3--4  & Curate emotion dataset; implement augmentation pipeline. \\
+Week 5--6  & Implement EmoMoconvq modules; run initial fine-tuning. \\
+Week 7--8 & Ablation studies; quantitative evaluation; user study. \\
+Week 9--10 & Final report and demo video. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+
+%% Use plainnat to work nicely with natbib. 
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
+
+

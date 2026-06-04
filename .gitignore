@@ -1,0 +1,52 @@
+# ============================================================
+#  EmoMoconvq .gitignore
+# ============================================================
+
+# ----- Large pretrained weights (download separately) -------
+# (GitHub blocks files >100MB; these are MoConVQ's released weights)
+*.data
+*.pth
+*.ckpt
+MoConVQ-main/simple_motion_data.h5
+
+# ----- Large archives / raw datasets ------------------------
+*.zip
+HumanML3D/texts/
+HumanML3D/**/*.npy
+
+# ----- Big binary assets shipped with MoConVQ ---------------
+MoConVQ-main/*.bvh
+MoConVQ-main/Data/Misc/*.bam
+MoConVQ-main/Data/Misc/*.blend
+MoConVQ-main/MoConVQ_*.pdf
+
+# ----- Python / build artifacts -----------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+*.so
+*.pyd
+.eggs/
+
+# ----- LaTeX build artifacts --------------------------------
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+
+# ----- Editor / OS ------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ----- Claude local config ----------------------------------
+.claude/
