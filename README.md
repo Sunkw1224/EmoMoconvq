@@ -2,7 +2,7 @@
 
 **On the Decoder Bottleneck in Physics-Based Emotion-Conditioned Motion Generation**
 
-SJTU 2024–2025 Robotics course final project — Kangwei Sun (524531910006).
+SJTU 2025-2026 Robotics course final project — Kangwei Sun (524531910006).
 
 This project asks a single question:
 
@@ -158,14 +158,3 @@ an emotion embedding + projection on top of T5 features.
 
 Dataset filtering uses **HumanML3D** captions.
 
-## Citation
-
-```
-@misc{sun2026emomoconvq,
-  author = {Kangwei Sun},
-  title  = {On the Decoder Bottleneck in Physics-Based Emotion-Conditioned Motion Generation},
-  year   = {2026},
-  note   = {SJTU Robotics Course Final Project},
-  url    = {https://github.com/Sunkw1224/EmoMoconvq}
-}
-```
