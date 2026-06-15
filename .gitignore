@@ -38,6 +38,9 @@ ppt_build/node_modules/
 MoConVQ-main/debug.mp4
 MoConVQ-main/Script/qualitative_renders/
 
+# ----- Local-only docs (not for upload) ---------------------
+ppt_build/演讲稿.docx
+
 # ----- LaTeX build artifacts --------------------------------
 *.aux
 *.bbl
