@@ -31,6 +31,13 @@ dist/
 *.pyd
 .eggs/
 
+# ----- Node.js (PPTX / DOCX generation deps) ----------------
+ppt_build/node_modules/
+
+# ----- Intermediate debug / render outputs ------------------
+MoConVQ-main/debug.mp4
+MoConVQ-main/Script/qualitative_renders/
+
 # ----- LaTeX build artifacts --------------------------------
 *.aux
 *.bbl
