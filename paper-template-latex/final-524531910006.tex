@@ -3,6 +3,7 @@
 \usepackage[numbers]{natbib}
 \usepackage{multicol}
 \usepackage[bookmarks=true]{hyperref}
+\hypersetup{hidelinks}
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{booktabs}
@@ -19,36 +20,33 @@
 
 \begin{document}
 
-\title{On the Decoder Bottleneck in Physics-Based\\
-Emotion-Conditioned Motion Generation\\[3pt]
-\large Final Project Report -- EmoMoconvq}
+\title{EmoMoconvq: Parameter-Efficient Emotion Conditioning\\
+for Physics-Based Motion Generation\\[3pt]
+\large Final Project Report}
 
 \author{Kangwei Sun 524531910006}
 
 \maketitle
 
 \begin{abstract}
-We investigate whether MoConVQ~\cite{yao2023moconvq}'s frozen physics-based
-text-to-motion model can be retrofitted with discrete emotion control via
-parameter-efficient fine-tuning. We propose \textbf{EmoMoconvq}, which adds
-a small emotion embedding to T2M-MoConGPT's text features and distils
-emotion knowledge from the baseline model's responses to text containing
-emotion adverbs. Through three progressive experimental variants we obtain
-a clear, reproducible result: the discrete emotion label \emph{does}
-produce statistically detectable variation in the token output of the
-fine-tuned GPT (separation ratio $1.36\!\times$ baseline noise; 39.3\%
-3-class classifier accuracy, with happy reaching 50\% individually).
-However, when those tokens are decoded through MoConVQ's frozen physics
-decoder, six standard affective kinematic features (vertical energy,
-step frequency, lean angle, etc.) show \emph{no} significant variation
-across emotions (one-way ANOVA $p > 0.7$ for all features; paired
-analysis $p > 0.26$). We diagnose this as a \emph{decoder bottleneck}:
-the physics tracker, optimised for kinematic fidelity to a single training
-distribution, normalises emotion-induced token differences out of the
-physical motion. We support the diagnosis with qualitative video output,
-release a working Gradio demo for interactive emotion-conditioned
-generation, and discuss what would be required to unlock real
-emotion-expressive physical motion in this class of model.
+We study whether MoConVQ~\cite{yao2023moconvq}, a frozen physics-based
+text-to-motion model, can be retrofitted with discrete emotion control via
+parameter-efficient fine-tuning. \textbf{EmoMoconvq} adds a 0.79M-parameter
+emotion branch to T2M-MoConGPT's text features and distils supervision from
+baseline responses to emotion-bearing text. In the strongest five-class
+emotion-module-only variant, changing only the label increases mean pairwise
+token disagreement from 0.560 under baseline sampling noise to 0.762
+($1.36\!\times$; paired $t(49)=4.58$, $p=3.2\times10^{-5}$; bootstrap 95\%
+ratio CI $[1.19,1.59]$). A separate focused three-class run obtains 39.3\%
+token-classifier accuracy versus 33.3\% chance, although the classifier's
+held-out validation accuracy is only 26.7\%, so we treat that result as
+exploratory. After frozen physics decoding, six affective kinematic features
+show no emotion effect (between-group ANOVA $p>0.7$; repeated-measures ANOVA
+$p>0.39$; paired tests $p>0.26$). These results establish that the control
+changes discrete outputs but do not establish that those changes encode
+perceptible emotion. We present a frozen-decoder bottleneck as the leading
+mechanistic hypothesis, discuss alternative explanations, and release code,
+checkpoints, videos, and an interactive Gradio demo.
 \end{abstract}
 
 \IEEEpeerreviewmaketitle
@@ -85,34 +83,32 @@ that already contains explicit emotion adverbs (\textit{walks happily},
 \textit{walks sadly}\ldots) to produce token sequences, then train
 EmoMoconvq to reproduce those same token sequences from the \emph{stripped}
 text plus the discrete emotion label (\S\ref{sec:distill}). Through three
-progressive variants we tighten the experimental design until the emotion
-label is provably the only useful conditioning signal in training
+progressive variants we tighten the design until the emotion label is, by
+construction, the only input that distinguishes targets sharing a base caption
 (\S\ref{sec:progress}).
 
 \textbf{Our finding.}
-Token-level evaluation (\S\ref{sec:tokeneval}) confirms that the emotion
-module \emph{does} learn to route information through the discrete label:
-on a held-out compositional test set of HumanML3D~\cite{guo2022generating}
-captions containing no emotion words, EmoMoconvq's outputs exhibit
-emotion-induced variation $1.36\!\times$ stronger than baseline
-stochasticity, and a trained 3-class classifier picks up the conditioned
-emotion at $39.3\%$ ($>$~33.3\% chance), with the \emph{happy} class
-reaching 50\%. However, kinematic ANOVA on the physically-decoded
-motions (\S\ref{sec:kineval}) finds \emph{no} significant emotion effect
-on six standard affective features. We diagnose this as the
-\textbf{physics-decoder bottleneck} (\S\ref{sec:discussion}): the frozen
-tracking policy collapses the emotion-induced latent variance back to its
-training distribution, washing out the very signal our module produces.
+Token-level evaluation (\S\ref{sec:tokeneval}) shows that the discrete label
+changes the model output on held-out HumanML3D~\cite{guo2022generating}
+captions: in the emotion-module-only model, variation is $1.36\!\times$
+baseline stochasticity and is significant in a caption-paired test. A
+separate three-class model obtains 39.3\% exploratory classifier accuracy
+($33.3\%$ chance). However, kinematic tests on physically decoded motions
+(\S\ref{sec:kineval}) find no emotion effect on six affective features. We
+therefore investigate a \textbf{physics-decoder bottleneck}
+(\S\ref{sec:discussion}) as the primary explanation, while retaining two
+alternatives: the token differences may not be emotion-semantic, and the
+selected kinematic features may miss perceptually relevant changes.
 
 \textbf{Contributions.}
 (i)~A clean, non-invasive emotion-conditioning architecture for MoConVQ
 that is a strict parameter superset of the pretrained checkpoint.
 (ii)~A reproducible three-stage distillation methodology that exposes the
 emotion module's true capability without confounding text-memorisation.
-(iii)~A token-level vs.\ motion-level decomposition of the evaluation
-that isolates the decoder as the bottleneck.
-(iv)~Negative result with mechanistic diagnosis pointing to concrete
-future work (decoder fine-tuning, motion-level supervision).
+(iii)~A token-level vs.\ motion-level decomposition that narrows where the
+control signal is lost and exposes the limits of token-only evaluation.
+(iv)~A carefully bounded negative result with a testable decoder-bottleneck
+hypothesis and concrete follow-ups (decoder ablation and motion supervision).
 (v)~A working Gradio interactive demo and 15-clip qualitative comparison
 video set.
 
@@ -133,10 +129,12 @@ expose an explicit emotion control.
 
 \textbf{Style and emotion conditioning.}
 ACTOR~\cite{petrovich2021action} conditions a transformer VAE on action
-labels; classical motion-style-transfer methods (Holden et al.; Aberman
-et al.) decompose content and style from style-labelled mocap. Our work
-differs in being non-invasive (frozen backbone) and in using
-\emph{text-prompt distillation} in lieu of style-labelled motion.
+labels. Aberman et al.~\cite{aberman2020unpaired} learn motion style transfer
+from an unpaired, style-labelled corpus, while 100STYLE~\cite{mason2022style}
+provides 100 locomotion styles for real-time modelling. These systems still
+depend on motion data whose skeleton and labels fit their training pipeline.
+Our approach instead uses text-prompt distillation and leaves the pretrained
+physics backbone unchanged.
 
 \textbf{Parameter-efficient adaptation.}
 We draw on the LoRA/adapter family~\cite{hu2022lora} in spirit. Our
@@ -144,7 +142,7 @@ emotion module is even lighter: $\sim$0.8M parameters with the rest of
 the model frozen. Path~B of our experiments (\S\ref{sec:progress}) is
 essentially a $\sim\!0.4\%$ adapter.
 
-\section{Method}
+\section{Methodology and System Design}
 \label{sec:method}
 
 \subsection{System overview}
@@ -229,7 +227,7 @@ trainable. 0.79M trainable parameters (0.41\%).
 samples on $\{$neutral, happy, fearful$\}$; chance level 33.3\% (vs.\
 20\%).
 
-\section{Experiments}
+\section{Experiments and Evaluation}
 
 \subsection{Datasets}
 \label{sec:dataset-gap}
@@ -243,8 +241,9 @@ pipeline. (2)~MoConVQ uses a custom 22-joint skeleton with non-standard
 joint names (\texttt{pelvis\_lowerback},
 \texttt{rTorso\_Clavicle}, \ldots); its \texttt{BVHToTargetBase} loader
 does name-matched pose copying, not real retargeting. We verified this
-by attempting to load a public emotion-locomotion BVH (100STYLE,
-\textit{Angry/Angry\_BR.bvh}) which failed immediately with
+by attempting to load a public stylised-locomotion BVH from
+100STYLE~\cite{mason2022style} (\textit{Angry/Angry\_BR.bvh}), which
+failed immediately with
 \texttt{KeyError: 'pelvis\_lowerback'}. A real retargeter would require
 multi-week engineering, so we chose the distillation route, with full
 disclosure of this scope change.
@@ -284,11 +283,18 @@ EmoMoconvq's 5 outputs) $\div$ (mean pairwise disagreement among
 baseline's 5 outputs). Values $>1.0$ mean the emotion knob produces
 \emph{more} variation than baseline stochasticity.
 
+For inference, we retain one emotion and one baseline disagreement score per
+caption, compare them with a paired $t$-test, and bootstrap captions (50{,}000
+resamples, fixed seed) to obtain a 95\% confidence interval for the ratio.
+This paired design controls for caption-specific motion complexity.
+
 \textbf{Classifier accuracy.} We train a small bi-GRU
 (tokens $\to$ emotion) on the distillation dataset and apply it to
 EmoMoconvq's compositional outputs. Per-class accuracy says whether the
-model's emotion-conditioned outputs are recognisable as the intended
-emotion.
+model's outputs resemble the intended class in that learned token space.
+Because this metric is meaningful only when the classifier generalises to
+held-out distillation samples, we report its validation accuracy and treat
+generation accuracy as exploratory when validation is at or below chance.
 
 Figure~\ref{fig:progression} summarises both metrics across the four
 experimental variants.
@@ -297,46 +303,42 @@ experimental variants.
 \centering
 \includegraphics[width=0.95\textwidth]{fig_progression.png}
 \caption{Token-level emotion separation across the four progressive
-variants. Left: pairwise token disagreement caused by changing the
-emotion label, normalised by baseline stochasticity. v1 is at baseline
-noise; tighter constraints (v2, B, 3-class) push the ratio past 1.0.
-Right: classifier accuracy on the model's compositional-test outputs
-vs.\ chance level for that variant's number of classes.}
+variants. Left: pairwise token disagreement caused by changing the emotion
+label, normalised by baseline stochasticity. Right: descriptive classifier
+accuracy on compositional-test outputs versus chance. The classifier panel
+must be read with its held-out validation accuracy, discussed in the text.}
 \label{fig:progression}
 \end{figure*}
 
-The trends are consistent: v1 (loose, large-capacity) lets the model
-ignore the emotion label entirely (ratio 0.96, chance-level classifier).
-Tightening the compositional structure (v2) and limiting capacity to the
-emotion module itself (Path~B) both increase emotion-conditioned
-variation. Path~B's $1.36\!\times$ ratio is statistically clear, with
-the emotion-embedding table moving by $L_2$ norm 1.35 over training,
-about 8$\times$ the v1 shift.
+The trends are consistent at the disagreement level: v1 (loose,
+large-capacity) is near baseline noise (ratio 0.96); v2 reaches 1.09; and
+limiting capacity to the emotion module itself (Path~B) reaches 1.36. For
+Path~B, mean disagreement is 0.762 versus 0.560 for baseline sampling. The
+caption-paired difference is significant ($t(49)=4.58$,
+$p=3.2\times10^{-5}$; Wilcoxon $p=3.9\times10^{-5}$), and the bootstrap 95\%
+CI for the ratio is $[1.19,1.59]$. The emotion-embedding table moves by
+$L_2$ norm 1.35 over training, about 8$\times$ the v1 shift. Thus the label
+reliably changes token sequences, although disagreement alone does not show
+that the changed tokens express the intended emotion.
 
-\textbf{3-class focus.} In the 3-class focused setup
-($\{$neutral, happy, fearful$\}$) the classifier reaches 39.3\%
-(chance 33.3\%); per-class accuracies are 30\% / 50\% / 38\%.
-Figure~\ref{fig:confusion} shows the confusion matrix. \emph{Happy} is
-clearly learnt; \emph{neutral} is essentially the baseline default
-(low-distinctness on purpose); \emph{fearful} retains some learnable
-signal.
+\textbf{3-class focus.} In the focused setup
+($\{$neutral, happy, fearful$\}$), generation accuracy is 39.3\% versus
+33.3\% chance; per-class values are 30\% / 50\% / 38\%
+(Fig.~\ref{fig:confusion}). However, the same classifier obtains only 26.7\%
+on its held-out distillation split, below chance. The 39.3\% result is
+therefore exploratory rather than confirmatory. Moreover, this model's token
+separation ratio is 1.10, with a bootstrap 95\% CI $[0.90,1.35]$, so it does
+not independently replicate Path~B's strong separation result.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.85\columnwidth]{fig_confusion_3class.png}
-\caption{Confusion matrix of the 3-class token classifier evaluated on
-EmoMoconvq's compositional outputs. Diagonal-dominant for \textit{happy}
-(50\%) and \textit{fearful} (38\%); \textit{neutral} dilutes evenly,
-which is consistent with our distillation construction (neutral targets
-the baseline default).}
+\caption{Confusion matrix of the 3-class token classifier on compositional
+outputs. Accuracy is 39.3\% (chance 33.3\%), but held-out classifier
+validation is 26.7\%; consequently this matrix is descriptive, not evidence
+of reliable emotion recognition.}
 \label{fig:confusion}
 \end{figure}
-
-\textbf{An interesting positive control.} The classifier reaches 27\% on
-its own held-out distillation samples (3-class chance: 33\%), but
-\emph{39\%} on EmoMoconvq's compositional outputs. The fine-tuned model
-amplifies the (weak) emotion signal that was present in the distillation
-targets -- a small but encouraging sign.
 
 \subsection{Motion-level kinematic ANOVA}
 \label{sec:kineval}
@@ -385,11 +387,12 @@ $>0.7$.}
 \label{fig:anova}
 \end{figure}
 
-Within-caption paired analysis tells the same story
-(Fig.~\ref{fig:paired}): for every feature the per-caption
-\emph{happy$-$neutral} and \emph{fearful$-$neutral} differences are
-40--60\% positive / negative, i.e.\ random. The physical motions are
-statistically interchangeable across the three conditioning emotions.
+Within-caption analysis tells the same story (Fig.~\ref{fig:paired}). A
+repeated-measures one-way ANOVA gives $p\in[0.391,0.823]$ and partial
+$\eta^2\leq0.048$ across the six features. Paired $t$-tests against neutral
+give $p\geq0.268$, and difference signs are split 40--60\% in either
+direction. Under these predefined features and this sample size, we find no
+systematic motion-level emotion effect.
 
 \begin{figure}[t]
 \centering
@@ -404,12 +407,12 @@ indicates no systematic emotion effect.}
 We render side-by-side comparison videos for 5 test captions $\times$ 3
 emotions = 15 clips, decoded through MoConVQ's physics simulator,
 visualised in Blender with a per-bone tracked skin geometry
-(\texttt{render\_qualitative\_videos.py}). Although the kinematic-feature
-ANOVA is negative on average, file-size statistics of the rendered
-clips already hint at meaningful divergence: e.g.\ for caption~3, the
-\emph{fearful} clip is $2.3\times$ the size of \emph{neutral} or
-\emph{happy}, consistent with a longer or more eventful motion. The
-fully-rendered clips are released alongside the code.
+(\texttt{render\_qualitative\_videos.py}). Some clips exhibit visible
+trajectory or timing differences, but the differences are inconsistent
+across captions and do not reliably map to the requested emotion. We did not
+run a sufficiently powered, blinded user study; the videos are therefore
+qualitative examples rather than perceptual evidence. They are released
+alongside the code for independent inspection.
 
 We also ship a Gradio web demo
 (\texttt{Script/gradio\_demo.py}) that accepts a free-form text prompt,
@@ -419,58 +422,59 @@ loads the agent, T5-large, and our checkpoint ($\sim$2~min); subsequent
 requests take $\sim$10~s each. This is a real, interactive, physics-based
 emotion-conditioned generator.
 
-\section{Discussion}
+\section{Results and Discussion}
 \label{sec:discussion}
 
-\subsection{Why the token signal does not reach the kinematics}
+\subsection{Interpreting the token--motion gap}
 The pattern in our results is:
 \begin{itemize}
 \item EmoMoconvq's emotion module \emph{is} trained: emotion-embedding
 $L_2$-shift is large; the module receives non-trivial gradients.
-\item Its \emph{token} outputs differ between conditioning emotions and
-the difference exceeds baseline noise ($1.36\!\times$).
-\item For two of three classes, the differences are even classifier-recognisable.
+\item Its \emph{token} outputs differ between conditioning labels and the
+Path~B difference exceeds baseline noise ($1.36\!\times$ with a confidence
+interval excluding 1).
+\item The independent token classifier is not reliable enough to establish
+that these differences encode emotion semantics.
 \item Yet the \emph{decoded physical motion} is statistically
 indistinguishable across emotions on six standard affective features.
 \end{itemize}
-The most plausible reconciliation is that the frozen
-\textbf{physics-tracking policy} acts as a \emph{regression to the
-training distribution}. MoConVQ's tracker was trained, via model-based
-RL, to follow a target latent trajectory while remaining within its
-physically-realisable training manifold. When EmoMoconvq pushes the
-latent trajectory off-manifold in an emotion-meaningful direction, the
-tracker projects it back: the joint torques, COM trajectory, foot
-contacts and overall kinematics revert to the tracker's prior. The
-emotion-induced signal lives in the input latent but is normalised out
-by the policy, manifesting only as discrete token differences with
-otherwise visually similar motion.
+Our leading hypothesis is that the frozen \textbf{physics-tracking policy}
+acts as a regression toward its training distribution. MoConVQ's tracker was
+trained, via model-based RL, to follow latent trajectories while maintaining
+physical plausibility. A new conditioning branch can change upstream tokens
+without providing the tracker motion-level supervision for the corresponding
+style. The tracker may therefore map distinct upstream sequences to similar
+joint torques, contacts, and centre-of-mass trajectories. We call this
+candidate mechanism the \emph{decoder bottleneck}.
 
-This is the \emph{decoder bottleneck}. It is not a defect of EmoMoconvq;
-it is an inherent property of any pipeline that bolts a new conditioning
-signal onto a deeply pretrained, frozen tracker. The proposal's hope --
-that token-level conditioning would naturally translate to motion-level
-emotion expression -- was overoptimistic given the architecture.
+The current experiments do not causally localise the loss to the tracker.
+Two alternatives remain. First, token disagreement may lie in code dimensions
+that are redundant or unrelated to emotion before physics decoding. Second,
+our six summary features may miss local timing, gesture, or trajectory cues
+that a human observer could perceive. Distinguishing these explanations
+requires an ablation that compares token, ConvVQ-latent, pre-simulation target
+motion, and final simulated motion, plus a blinded perceptual study. Thus the
+decoder bottleneck is a testable diagnosis, not a proven architectural law.
 
 \subsection{Why the proposal's planned 60\% target was not reached}
 The proposal targeted FID degradation $\le 0.5$, emotion-classifier
 accuracy $\ge 60\%$, and $\ge 70\%$ user-study recognition. With the
-discovered decoder bottleneck, the classifier-accuracy target is
-unreachable without an emotion-aware tracker. We report what we
-measured rather than over-claim. The 39.3\% 3-class token classifier
-(vs.\ 33.3\% chance) is an honest, defensible token-level effect; the
-kinematic null result is honestly reported as such.
+observed token--motion gap, these targets were not reached. The 39.3\%
+three-class generation score is exploratory because classifier validation is
+below chance, and the motion-level tests are null. We report these outcomes
+instead of presenting the descriptive score as successful emotion control.
 
 \subsection{What this means for future work}
-The decoder-bottleneck diagnosis directly motivates three concrete
+The decoder-bottleneck hypothesis motivates three concrete
 follow-ups. Each requires substantial extra engineering that was beyond
 the scope of this course project.
 
-\textbf{(i) Joint fine-tuning of the tracker.} Backpropagating through
-the physics simulator (DiffTaichi-style) and updating the tracker policy
-alongside EmoMoconvq would let the tracker absorb the emotion-conditioned
-latent rather than rejecting it. MoConVQ's released codebase does not
-expose differentiable physics; enabling it is a non-trivial
-infrastructure project.
+\textbf{(i) Decoder ablation and tracker adaptation.} First measure where
+separation disappears by comparing ConvVQ latents, target poses, and simulated
+poses. If the tracker is responsible, adapt it with policy-gradient updates or
+a differentiable-physics surrogate while jointly training the emotion branch.
+MoConVQ's released code does not expose this training path, so enabling it is
+a non-trivial infrastructure project.
 
 \textbf{(ii) Emotion-preservation loss in the tracking objective.}
 Adding a term that penalises kinematic divergence from an
@@ -491,17 +495,15 @@ fixing the data pipeline.
 We built a clean, minimal, parameter-efficient emotion-conditioning
 extension to a state-of-the-art physics-based text-to-motion model, and
 tested it under progressively tighter experimental controls. The
-emotion module verifiably learns: token outputs differ across emotion
-labels in a way that exceeds baseline stochasticity, and for the two
-strongest classes the differences are recognisable to a trained
-classifier. But the same emotion-induced differences do not survive
-physics-tracking decoding, with no significant variation on six
-established affective kinematic features. We trace this to the
-\emph{decoder bottleneck} -- the frozen tracking policy normalises
-emotion-conditioned latents back to its training manifold -- and lay
-out three concrete future-work directions, all of which share a common
-prerequisite: getting real emotion-labelled motion onto MoConVQ's
-custom skeleton.
+emotion module verifiably changes token outputs beyond baseline sampling
+noise in the strongest controlled variant. However, the classifier evidence
+for emotion semantics is inconclusive, and the decoded motions show no
+significant variation on six affective kinematic features. A frozen tracking
+decoder is the leading explanation for this gap, but causal confirmation
+requires intermediate-latent ablations and perceptual evaluation. The project
+therefore contributes both a working conditioning system and a reproducible,
+bounded negative result that identifies the next experiments needed for real
+emotion-expressive physical motion.
 
 \section*{Released artefacts}
 Code, three trained EmoMoconvq checkpoints (v1, v2, 3-class), v1 \& v2

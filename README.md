@@ -1,16 +1,13 @@
 # EmoMoconvq
 
-**On the Decoder Bottleneck in Physics-Based Emotion-Conditioned Motion Generation**
+**EmoMoconvq: Parameter-Efficient Emotion Conditioning for Physics-Based Motion Generation**
 
 SJTU 2025-2026 Robotics course final project — Kangwei Sun (524531910006).
 
-This project asks a single question:
-
-> *Can a frozen physics-based text-to-motion model (MoConVQ) be retrofitted with
-> discrete emotion control via parameter-efficient fine-tuning?*
-
-The answer turns out to be **yes at the token level, no at the motion level** —
-and the reason why is the contribution of this report.
+This project implements a lightweight 0.79M-parameter emotion-conditioning
+interface for MoConVQ. Controlled evaluation demonstrates significant
+token-level separation, while the motion-level results identify a concrete
+direction for improving the frozen physics decoder.
 
 ---
 
@@ -18,9 +15,11 @@ and the reason why is the contribution of this report.
 
 |                              | Result |
 |------------------------------|--------|
-| Token-level emotion signal   | ✅ Detectable. Separation ratio **1.36 ×** baseline noise; 3-class classifier reaches **39.3 %** accuracy (happy alone 50 %). |
-| Motion-level emotion signal  | ❌ Not detectable. 6 standard kinematic features (vertical energy, step frequency, lean angle, …) show **one-way ANOVA p > 0.7** for *every* feature; paired analysis p > 0.26. |
-| Diagnosis                    | **Decoder bottleneck.** MoConVQ's frozen physics tracker is optimised for kinematic fidelity to a single training distribution, so it normalises emotion-induced token differences *out* of the rendered motion. |
+| System                       | ✅ A working 0.79M-parameter emotion branch, distillation pipeline, physics-based generator, Gradio demo, and qualitative video suite. |
+| Token-level control          | ✅ Path B reaches **1.36×** baseline sampling noise; paired `t(49)=4.58`, `p=3.2×10⁻⁵`, bootstrap 95% ratio CI `[1.19, 1.59]`. |
+| Exploratory classification   | ⚠️ The separate 3-class run reaches **39.3%** versus 33.3% chance, but classifier validation is only **26.7%**, so this is not primary evidence. |
+| Motion-level evaluation      | No detectable effect on six kinematic features: between-group ANOVA `p>0.7`, repeated-measures ANOVA `p>0.39`, paired tests `p>0.26`. |
+| Interpretation               | A frozen-decoder bottleneck is the leading hypothesis; token redundancy and incomplete kinematic features remain alternative explanations. |
 
 Full write-up: [paper-template-latex/final-524531910006.pdf](paper-template-latex/final-524531910006.pdf).
 
@@ -45,12 +44,11 @@ EmoMoconvq/
 │       ├── render_bvh_blender.py               Blender 5.x per-bone renderer
 │       └── gradio_demo.py                      Phase H — interactive web demo
 ├── paper-template-latex/
-│   ├── final-524531910006.pdf     final 5-page IEEEtran report
+│   ├── final-524531910006.pdf     6-page RSS report (5-page body + references)
 │   ├── final-524531910006.tex     source
 │   └── fig_*.png                  progression / confusion / ANOVA / paired figures
 ├── ppt_build/
 │   ├── EmoMoconvq_spotlight.pptx  9-slide minimalist spotlight deck
-│   ├── 演讲稿.docx                 ~5 min Chinese speech script
 │   ├── build_pptx.js              pptxgenjs generator
 │   └── build_script.js            docx-js speech generator
 ├── HumanML3D/                     subset of HumanML3D used for filtering
@@ -126,9 +124,8 @@ preview in the browser.
 
 | Item                    | Location |
 |-------------------------|----------|
-| 5-page final report     | [paper-template-latex/final-524531910006.pdf](paper-template-latex/final-524531910006.pdf) |
+| Final report (5-page body + references)     | [paper-template-latex/final-524531910006.pdf](paper-template-latex/final-524531910006.pdf) |
 | Spotlight presentation  | [ppt_build/EmoMoconvq_spotlight.pptx](ppt_build/EmoMoconvq_spotlight.pptx) (video embedded) |
-| Chinese speech script   | [ppt_build/演讲稿.docx](ppt_build/演讲稿.docx) |
 | Interactive demo        | `Script/gradio_demo.py` |
 | Qualitative comparison  | `ppt_build/cap008_compare.mp4` (3 emotions side-by-side) |
 
@@ -136,7 +133,8 @@ preview in the browser.
 
 This project deliberately reports a **negative motion-level result** rather
 than claiming success on a metric that does not reflect physical expressivity.
-The decoder-bottleneck diagnosis is the contribution.
+The token–motion evaluation gap and the resulting testable decoder-bottleneck
+hypothesis are the main analytical findings.
 
 Things that **don't** work and why:
 
