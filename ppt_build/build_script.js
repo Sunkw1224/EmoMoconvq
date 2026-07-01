@@ -134,7 +134,7 @@ children.push(new Paragraph({
   shading: { type: ShadingType.CLEAR, fill: LIGHTBG },
   spacing: { after: 200, line: 340 },
   children: [
-    run("• 总时长约 5 分 5 秒；现场可能比稿子快 5–10%，正常。", { size: 20, color: INK }),
+    run("• 总时长约 5 分 50 秒；现场比稿子快 5–10%，落到约 5 分 15 秒，刚好 Spotlight 时长。", { size: 20, color: INK }),
   ],
 }));
 
@@ -192,27 +192,71 @@ children.push(speech([
 children.push(stageNote("节奏要快。这一页讲完不停顿，直接切下一页。"));
 
 // --- SLIDE 4 ---------------------------------------------------------------
-children.push(...slideHeader(4, "方法：模型架构", 40));
+children.push(...slideHeader(4, "方法：模型架构", 75));
 children.push(speech([
-  run("看一眼架构。所有灰色块是冻结的 MoConVQ 组件。我们只在 T5 文本特征前面，", { size: 22 }),
-  run("加一个小模块：", { bold: true, size: 22 }),
+  run("我们先把图上从左到右这条管线讲清楚——它就是 MoConVQ 完整的生成流程，所有灰色块都是", { size: 22 }),
+  run("冻结的", { bold: true, color: ACCENT, size: 22 }),
+  run("，唯一会被训练的是上面 teal 描边的两个块。", { size: 22 }),
+]));
+
+// ----- Pipeline walk-through (4 stages) -----
+children.push(speech([
+  run("第一格 ", { size: 22 }),
+  runEn("T5-large", { bold: true, size: 22 }),
+  run("：把 prompt 编码成一段 1024 维的语义向量序列——把自然语言翻译成机器能用的语义。这一层是冻结的。", { size: 22 }),
 ]));
 children.push(speech([
-  run("一张 5 × 512 的情绪嵌入表，加一个两层 MLP，把情绪向量投到 1024 维的文本特征空间，", { size: 22 }),
-  run("直接相加。", { bold: true, color: ACCENT, size: 22 }),
+  run("第二格 ", { size: 22 }),
+  runEn("T2M-MoConGPT", { bold: true, color: ACCENT, size: 22 }),
+  run("：一个 12 层的自回归 transformer，用", { size: 22 }),
+  run("交叉注意力", { bold: true, size: 22 }),
+  run("读 T5 的语义特征，", { size: 22 }),
+  run("逐时间步吐出离散的 RQ token", { bold: true, size: 22 }),
+  run("。注意是 ", { size: 22 }),
+  runEn("residual VQ", { italics: true, size: 22 }),
+  run("——每个时间步同时生成若干层残差码本索引，比单层 VQ 表达细很多。", { size: 22 }),
 ]));
 children.push(speech([
-  run("公式就一行：", { size: 22 }),
+  run("这里也正是我们", { size: 22 }),
+  run("注入情绪的位置", { bold: true, color: ACCENT, size: 22 }),
+  run("——在 T5 输出进入 MoConGPT 之前，把情绪向量加上去。", { size: 22 }),
+]));
+children.push(speech([
+  run("第三格 ", { size: 22 }),
+  runEn("ConvVQ decoder", { bold: true, size: 22 }),
+  run("：拿这些离散 token 去码本里查向量，残差层相加后用 1D 卷积上采样，得到一个", { size: 22 }),
+  run("连续的动作潜变量 z", { bold: true, size: 22 }),
+  run("。注意 z 还不是关节角，它是给物理控制器使用的中间表征。", { size: 22 }),
+]));
+children.push(speech([
+  run("第四格 ", { size: 22 }),
+  runEn("Physics decoder", { bold: true, size: 22 }),
+  run(" 是整套系统的灵魂：内部是一个", { size: 22 }),
+  run("MoE 跟踪策略", { bold: true, size: 22 }),
+  run("，吃当前角色的物理状态和目标 z，输出每个关节的", { size: 22 }),
+  run("力矩", { bold: true, color: ACCENT, size: 22 }),
+  run("；力矩送进 ODE 物理仿真器按牛顿力学积分一步——脚不会穿地，摔倒会真摔。一帧一帧跑下去就得到标准的 BVH 动作。", { size: 22 }),
+]));
+
+// ----- Our emotion module -----
+children.push(speech([
+  run("回到我们加的小模块：", { size: 22 }),
+  run("一张 5 × 512 的情绪嵌入表", { bold: true, size: 22 }),
+  run(" 加一个两层 MLP，把情绪向量投到 1024 维直接", { size: 22 }),
+  run("加到文本特征上", { bold: true, color: ACCENT, size: 22 }),
+  run("。公式就一行：", { size: 22 }),
   runEn(" f_cond = f_T5 + MLP_proj(E_e(c)) ", { bold: true, font: "Consolas", size: 22 }),
   run("。", { size: 22 }),
 ]));
 children.push(speech([
   run("一个", { size: 22 }),
   run("关键设计", { bold: true, color: ACCENT, size: 22 }),
-  run("：MLP 最后一层零初始化——这样训练第 0 步时，加性项是 0，模型完全等价于预训练基线，", { size: 22 }),
+  run("：MLP 最后一层", { size: 22 }),
+  run("零初始化", { bold: true, size: 22 }),
+  run("——训练第 0 步加性项为 0，模型完全等价于预训练基线，", { size: 22 }),
   run("优雅退化保护。", { bold: true, size: 22 }),
 ]));
-children.push(stageNote("指公式那行；指到 “+” 时停半拍，强调相加的设计。"));
+children.push(stageNote("依次指四个盒子（T5 → MoConGPT → ConvVQ → Physics），节奏要稳；讲到“注入情绪的位置”指 + 号。若总时长压力大，可把第三、第四格各压成一句。指公式时停半拍。"));
 
 // --- SLIDE 5 ---------------------------------------------------------------
 children.push(...slideHeader(5, "渐进式蒸馏设计", 40));
@@ -400,7 +444,7 @@ const checks = [
   "重音和关键数字（1.36 倍 / 39.3% / 全军覆没 / decoder bottleneck）念慢一拍，让评委记住。",
   "现场不要跑 Gradio——加载要 1–2 分钟，风险太高。视频已经够了。",
   "如果时间富裕：在最后一句“谢谢大家”前停顿 2 秒，让 punchline 落地。",
-  "如果时间紧：可以压缩第 3 页（相关工作）和第 8 页（视频），核心 5/6/7/9 一定不能砍。",
+  "如果时间紧：先压缩第 3 页（相关工作）和第 8 页（视频）；第 4 页可把 ConvVQ / Physics 两格合成一句过；核心 5/6/7/9 一定不能砍。",
 ];
 for (const c of checks) {
   children.push(new Paragraph({

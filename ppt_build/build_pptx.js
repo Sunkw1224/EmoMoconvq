@@ -208,107 +208,138 @@ const TOTAL = 9;
   s.background = { color: BG };
   addSlideTitle(s, "Method  —  Architecture");
 
-  s.addText("Inject emotion into MoConVQ's text feature via a small trainable module; freeze everything else.", {
-    x: 0.5, y: 1.2, w: 9.0, h: 0.4,
+  s.addText("EmoMoconvq plugs a tiny trainable emotion branch into MoConVQ's frozen  text → tokens → latent → physics  pipeline.", {
+    x: 0.5, y: 1.15, w: 9.0, h: 0.35,
     fontFace: BODY, fontSize: 12, color: MUTED, italic: true, margin: 0,
   });
 
-  // Diagram band   (y = 1.85 -> 3.95, h = 2.1)
-  const dy = 1.85, dh = 2.1;
-  // Box helper inline
-  const box = (x, w, label, sub, isTrain, isOp) => {
-    const fill   = isTrain ? "EEF2F5" : "F9FAFB";
-    const border = isTrain ? ACCENT   : LINE;
-    const lblColor = INK;
-    s.addShape(pres.shapes.RECTANGLE, {
-      x, y: dy, w, h: dh,
-      fill: { color: fill },
-      line: { color: border, width: isTrain ? 1.5 : 0.75 },
-    });
-    s.addText(label, {
-      x: x + 0.08, y: dy + dh / 2 - 0.45, w: w - 0.16, h: 0.45,
-      fontFace: HEAD, fontSize: 12, bold: true, color: lblColor,
-      align: "center", valign: "middle", margin: 0,
-    });
-    if (sub) {
-      s.addText(sub, {
-        x: x + 0.08, y: dy + dh / 2 + 0.0, w: w - 0.16, h: 0.55,
-        fontFace: BODY, fontSize: 9.5, color: MUTED,
-        align: "center", valign: "top", italic: true, margin: 0,
-      });
-    }
-  };
+  // ---- Emotion module (top, above the +) --------------------------------
+  const plusCx = 2.80;       // center of the (+) operator
+  const emoW   = 2.10;
+  const emoH   = 0.70;
+  const emoX   = plusCx - emoW / 2;
+  const emoY   = 1.65;
 
-  // Layout: 6 boxes (with the (+) op in the middle)
-  // Widths
-  const X0 = 0.5;
-  const w_text = 1.4;
-  const w_t5   = 1.4;
-  const w_plus = 0.6;
-  const w_emo  = 2.0;
-  const w_temp = 1.7;
-  const w_dec  = 1.7;
-  const gap    = 0.1;
-
-  let x = X0;
-  box(x, w_text, "Text prompt",      "(frozen input)", false); x += w_text + gap;
-  box(x, w_t5,   "T5-large",         "frozen",         false); x += w_t5;
-
-  // (+) op
-  s.addShape(pres.shapes.OVAL, {
-    x: x + 0.05, y: dy + dh / 2 - 0.20, w: 0.40, h: 0.40,
-    fill: { color: "FFFFFF" }, line: { color: ACCENT, width: 1.5 },
-  });
-  s.addText("+", {
-    x: x + 0.05, y: dy + dh / 2 - 0.24, w: 0.40, h: 0.40,
-    fontFace: HEAD, fontSize: 18, bold: true, color: ACCENT,
-    align: "center", valign: "middle", margin: 0,
-  });
-  x += w_plus;
-
-  box(x, w_temp, "Temporal Transf.",  "12 layers  •  frozen* or top-K tuned", false); x += w_temp + gap;
-  box(x, w_dec,  "Physics Decoder",   "frozen tracker + ODE",                  false);
-
-  // Emotion branch (above the +)
-  const emoX = X0 + w_text + gap + w_t5 + w_plus - w_emo / 2;
   s.addShape(pres.shapes.RECTANGLE, {
-    x: emoX, y: dy - 1.0, w: w_emo, h: 0.7,
+    x: emoX, y: emoY, w: emoW, h: emoH,
     fill: { color: "EEF2F5" }, line: { color: ACCENT, width: 1.5 },
   });
   s.addText("Emotion label  c", {
-    x: emoX + 0.08, y: dy - 0.95, w: w_emo - 0.16, h: 0.32,
-    fontFace: HEAD, fontSize: 12, bold: true, color: INK,
+    x: emoX + 0.05, y: emoY + 0.05, w: emoW - 0.10, h: 0.28,
+    fontFace: HEAD, fontSize: 11, bold: true, color: INK,
     align: "center", margin: 0,
   });
-  s.addText("E_e  (5 x 512)   →   MLP_proj  (→ 1024)", {
-    x: emoX + 0.08, y: dy - 0.62, w: w_emo - 0.16, h: 0.30,
+  s.addText("E_e  (5 × 512)   →   MLP_proj  (→ 1024)", {
+    x: emoX + 0.05, y: emoY + 0.35, w: emoW - 0.10, h: 0.30,
     fontFace: BODY, fontSize: 10, color: ACCENT, italic: true,
     align: "center", margin: 0,
   });
 
-  // Arrow down from emotion branch to (+)
+  // ---- Pipeline band ----------------------------------------------------
+  const dy = 2.80, dh = 0.95;
+  const cy = dy + dh / 2;     // vertical center for arrows / +
+
+  const makeBox = (x, w, label, sub, isAdapt) => {
+    const fill   = isAdapt ? "EEF2F5" : "F9FAFB";
+    const border = isAdapt ? ACCENT   : LINE;
+    s.addShape(pres.shapes.RECTANGLE, {
+      x, y: dy, w, h: dh,
+      fill: { color: fill }, line: { color: border, width: isAdapt ? 1.5 : 0.75 },
+    });
+    s.addText(label, {
+      x: x + 0.05, y: dy + 0.08, w: w - 0.10, h: 0.42,
+      fontFace: HEAD, fontSize: 12, bold: true, color: INK,
+      align: "center", valign: "middle", margin: 0,
+    });
+    if (sub) {
+      s.addText(sub, {
+        x: x + 0.05, y: dy + 0.50, w: w - 0.10, h: 0.40,
+        fontFace: BODY, fontSize: 9, color: MUTED, italic: true,
+        align: "center", valign: "top", margin: 0,
+      });
+    }
+  };
+
+  const arrow = (x1, x2) => {
+    s.addShape(pres.shapes.LINE, {
+      x: x1, y: cy, w: x2 - x1, h: 0,
+      line: { color: TEXT, width: 1.0, endArrowType: "triangle" },
+    });
+  };
+
+  // "text →" label on the left
+  s.addText("text  →", {
+    x: 0.20, y: cy - 0.18, w: 0.85, h: 0.36,
+    fontFace: BODY, fontSize: 11, color: TEXT,
+    align: "right", valign: "middle", margin: 0,
+  });
+
+  // Box 1: T5-large (frozen)
+  makeBox(1.10, 1.40, "T5-large", "encoder · frozen", false);
+  arrow(2.50, 2.60);
+
+  // (+) operator
+  s.addShape(pres.shapes.OVAL, {
+    x: 2.60, y: cy - 0.20, w: 0.40, h: 0.40,
+    fill: { color: "FFFFFF" }, line: { color: ACCENT, width: 1.5 },
+  });
+  s.addText("+", {
+    x: 2.60, y: cy - 0.24, w: 0.40, h: 0.40,
+    fontFace: HEAD, fontSize: 18, bold: true, color: ACCENT,
+    align: "center", valign: "middle", margin: 0,
+  });
+  arrow(3.00, 3.15);
+
+  // Box 2: T2M-MoConGPT (emotion injected here; trainable / top-K tuned)
+  makeBox(3.15, 2.05, "T2M-MoConGPT", "12-layer autoreg. transformer · top-K tuned · emits RQ tokens", true);
+  arrow(5.20, 5.40);
+
+  // Box 3: ConvVQ decoder (frozen)
+  makeBox(5.40, 1.65, "ConvVQ decoder", "RQ tokens → motion latent  z", false);
+  arrow(7.05, 7.25);
+
+  // Box 4: Physics decoder (frozen)
+  makeBox(7.25, 1.90, "Physics decoder", "MoE tracker + ODE simulator", false);
+
+  // "→ BVH" on the right
+  s.addText("→  BVH", {
+    x: 9.18, y: cy - 0.18, w: 0.80, h: 0.36,
+    fontFace: BODY, fontSize: 11, color: TEXT,
+    align: "left", valign: "middle", margin: 0,
+  });
+
+  // Arrow down from emotion module to (+)
   s.addShape(pres.shapes.LINE, {
-    x: emoX + w_emo / 2, y: dy - 0.30, w: 0,
-    h: dh / 2 + 0.30 - 0.20,
+    x: plusCx, y: emoY + emoH, w: 0,
+    h: (cy - 0.20) - (emoY + emoH),
     line: { color: ACCENT, width: 1.5, endArrowType: "triangle" },
   });
 
-  // Caption / legend
-  s.addText("0.8M trainable emotion params  •  upstream MoConVQ source code unmodified", {
-    x: 0.5, y: 4.05, w: 9.0, h: 0.35,
-    fontFace: BODY, fontSize: 11, color: MUTED, italic: true,
-    align: "center", margin: 0,
+  // ---- MoConVQ pipeline walk-through caption ---------------------------
+  s.addText([
+    { text: "MoConVQ pipeline (everything outside the teal box is frozen): ", options: { bold: true, color: INK } },
+    { text: "T5 encodes the prompt; ", options: {} },
+    { text: "T2M-MoConGPT ", options: { bold: true, color: ACCENT } },
+    { text: "autoregressively emits a residual-VQ token sequence; ", options: {} },
+    { text: "ConvVQ decodes those tokens to a continuous motion latent ", options: {} },
+    { text: "z", options: { italic: true } },
+    { text: "; the MoE tracking policy then drives an ODE simulator that follows ", options: {} },
+    { text: "z", options: { italic: true } },
+    { text: " and outputs physically valid BVH motion.", options: {} },
+  ], {
+    x: 0.5, y: 3.92, w: 9.0, h: 0.62,
+    fontFace: BODY, fontSize: 10, color: TEXT, valign: "top", margin: 0,
   });
 
-  // Fusion equation
-  s.addText("f_cond = f_T5 + MLP_proj( E_e (c) )", {
-    x: 0.5, y: 4.45, w: 9.0, h: 0.5,
-    fontFace: "Consolas", fontSize: 15, color: INK,
+  // ---- Fusion equation + zero-init note --------------------------------
+  s.addText("f_cond  =  f_T5  +  MLP_proj( E_e (c) )", {
+    x: 0.5, y: 4.65, w: 9.0, h: 0.35,
+    fontFace: "Consolas", fontSize: 14, color: INK,
     align: "center", margin: 0,
   });
-  s.addText("zero-init last linear → at step 0, model = baseline (graceful degradation)", {
-    x: 0.5, y: 4.95, w: 9.0, h: 0.3,
-    fontFace: BODY, fontSize: 10.5, color: MUTED, italic: true,
+  s.addText("0.8 M trainable emotion params  •  zero-init last linear → step 0 = baseline (graceful degradation)", {
+    x: 0.5, y: 5.00, w: 9.0, h: 0.25,
+    fontFace: BODY, fontSize: 10, color: MUTED, italic: true,
     align: "center", margin: 0,
   });
 
